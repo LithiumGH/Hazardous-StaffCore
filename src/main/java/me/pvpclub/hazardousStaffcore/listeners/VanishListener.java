@@ -2,7 +2,8 @@ package me.pvpclub.hazardousStaffcore.listeners;
 
 import me.pvpclub.hazardousStaffcore.HazardousStaffcore;
 import org.bukkit.Bukkit;
-import org.bukkit.block.Chest;
+import org.bukkit.GameMode;
+import org.bukkit.block.*;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -11,14 +12,20 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 public class VanishListener implements Listener {
 
     private final HazardousStaffcore plugin;
+    private final Map<UUID, GameMode> previousGameModes = new HashMap<>();
 
     public VanishListener(HazardousStaffcore plugin) {
         this.plugin = plugin;
@@ -56,7 +63,7 @@ public class VanishListener implements Listener {
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
-    public void onChestOpen(PlayerInteractEvent event) {
+    public void onStorageOpen(PlayerInteractEvent event) {
         Player player = event.getPlayer();
 
         if (!plugin.getVanishManager().isVanished(player)) return;
@@ -65,13 +72,29 @@ public class VanishListener implements Listener {
 
         if (event.getClickedBlock() == null) return;
 
-        if (plugin.getConfig().getBoolean("vanish.silent-chest-open", true)) {
-            if (event.getClickedBlock().getState() instanceof Chest) {
-                Chest chest = (Chest) event.getClickedBlock().getState();
-                player.openInventory(chest.getInventory());
-                event.setCancelled(true);
-            }
+        BlockState state = event.getClickedBlock().getState();
+
+        if (isStorageContainer(state)) {
+            previousGameModes.put(player.getUniqueId(), player.getGameMode());
+            player.setGameMode(GameMode.SPECTATOR);
         }
+    }
+
+    @EventHandler
+    public void onInventoryClose(InventoryCloseEvent event) {
+        if (!(event.getPlayer() instanceof Player)) return;
+
+        Player player = (Player) event.getPlayer();
+        UUID uuid = player.getUniqueId();
+
+        if (previousGameModes.containsKey(uuid)) {
+            GameMode previousMode = previousGameModes.remove(uuid);
+            player.setGameMode(previousMode);
+        }
+    }
+
+    private boolean isStorageContainer(BlockState state) {
+        return state instanceof Container;
     }
 
     @EventHandler
