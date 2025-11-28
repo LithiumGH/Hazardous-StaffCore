@@ -13,7 +13,8 @@ import java.util.UUID;
 public class VanishManager {
 
     private final HazardousStaffcore plugin;
-    private Map<UUID, Integer> vanishedPlayers;
+    // Map storing vanished players and their vanish level. only initialized once so it can be final
+    private final Map<UUID, Integer> vanishedPlayers;
 
     public VanishManager(HazardousStaffcore plugin) {
         this.plugin = plugin;
@@ -38,6 +39,9 @@ public class VanishManager {
         UUID uuid = player.getUniqueId();
         vanishedPlayers.put(uuid, level);
 
+        // Apply permanent Night Vision while vanished
+        applyNightVision(player);
+
         updateVanishState(player);
         player.sendMessage("§aYou are now vanished at level " + level + ".");
     }
@@ -49,6 +53,9 @@ public class VanishManager {
         for (Player online : Bukkit.getOnlinePlayers()) {
             online.showPlayer(plugin, player);
         }
+
+        // Remove Night Vision when no longer vanished
+        removeNightVision(player);
 
         player.sendMessage("§cYou are no longer vanished.");
     }
@@ -88,6 +95,11 @@ public class VanishManager {
     }
 
     public void handleJoin(Player player) {
+        // If the joining player is vanished, ensure Night Vision is active
+        if (isVanished(player)) {
+            applyNightVision(player);
+        }
+
         for (UUID uuid : vanishedPlayers.keySet()) {
             Player vanished = Bukkit.getPlayer(uuid);
             if (vanished != null) {
@@ -97,5 +109,20 @@ public class VanishManager {
                 }
             }
         }
+    }
+
+    /**
+     * Apply infinite night vision effect to the player while vanished.
+     */
+    private void applyNightVision(Player player) {
+        PotionEffect effect = new PotionEffect(PotionEffectType.NIGHT_VISION, Integer.MAX_VALUE, 0, true, false, false);
+        player.addPotionEffect(effect);
+    }
+
+    /**
+     * Remove the Night Vision effect if present.
+     */
+    private void removeNightVision(Player player) {
+        player.removePotionEffect(PotionEffectType.NIGHT_VISION);
     }
 }
